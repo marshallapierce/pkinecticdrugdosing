@@ -1,0 +1,75 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Django stuff:
+*.log
+*.pid
+*.bak
+*.swp
+*.pot
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+*.sqlite3-journal
+*.sqlite3-shm
+*.sqlite3-wal
+migrations/
+# If you are using SQLite3 database
+db.sqlite3
+
+# If you are using PostgreSQL database
+*.pgdata
+
+# If you are using MySQL database
+*.sql
+
+# Media files
+media/
+staticfiles/
+
+# Static files
+staticfiles/
+
+# Local environment settings
+.env
+.venv
+
+# VS Code settings
+.vscode/
+
+# PyCharm settings
+.idea/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# macOS files
+.DS_Store
+
+# Windows files
+Thumbs.db
