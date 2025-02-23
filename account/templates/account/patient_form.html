@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}{{ patient_form.instance.pk|yesno:"Edit Patient,Create Patient" }}{% endblock %}
+
+{% block extra_css %}
+{% load bootstrap4 %}
+{% bootstrap_css %}
+{{ form_media.css }}
+{% endblock %}
+
+{% block content %}
+<h1>{{ patient_form.instance.pk|yesno:"Edit Patient,Create Patient" }}</h1>
+<form method="post">
+  {% csrf_token %}
+  {{ patient_form.non_field_errors }}
+  
+    {{ patient_form.as_p }}
+    {{ age_form.as_p }}
+    {{ weight_form.as_p }}
+    {{ demographics_form.as_p }}
+    {{ creatinine_form.as_p }}
+    {{ creatinine_form2.as_p }}
+    {{ drug_form.as_p }} 
+    {% if lbw_label and lbw_value %}
+        <p><strong>{{ lbw_label }}:</strong> {{ lbw_value }}</p>
+    {% endif %}
+    {% if dosingweight_label and dosingweight_value %}
+        <p><strong>{{ dosingweight_label }}:</strong> {{ dosingweight_value }}</p>
+    {% endif %}
+    {% if bsa_label and bsa_value %}
+        <p><strong>{{ bsa_label }}:</strong> {{ bsa_value }}</p>
+    {% endif %}
+    {% if creatinineclearance_label and creatinineclearance_value %}
+        <p><strong>{{ creatinineclearance_label }}:</strong> {{ creatinineclearance_value }}</p>
+    {% endif %}
+   
+    <button type="submit">Submit</button>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+{% bootstrap_javascript jquery='full' %}
+{{ form_media.js }}
+{% endblock %}
