@@ -48,6 +48,9 @@ db.sqlite3
 # If you are using MySQL database
 *.sql
 
+# Exclude utils.py
+utils.py
+
 # Media files
 media/
 staticfiles/

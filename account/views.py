@@ -8,9 +8,11 @@ from .forms import LoginForm, UserRegistrationForm, UserEditForm, ProfileEditFor
 from .models import Profile
 from django.contrib import messages
 from .models import Patient, Age, Weight, Demographics, Creatinine
-from .utils import bsa, leanbodyweightcalc, dosingweightcalc, creatinineclearancecalc
+from .utils import bsacalc, leanbodyweightcalc, dosingweightcalc, creatinineclearancecalc, hoursdifferencecalc, creatinineclearancecalc2
+from .utils import eliminationratecalc, Vdcalc, Vdperkgcalc, drughalf_lifecalc, loadingdosecalc, maintenancedosecalc, taucalc
 from django.utils import timezone
-from .forms import PatientForm, AgeForm, WeightForm, DemographicsForm, CreatinineForm, DrugForm, CreatinineForm2
+from .forms import PatientForm, AgeForm, WeightForm, DemographicsForm, CreatinineForm, DrugForm, CreatinineForm2, InfusionPeriodForm, RoundedDosageIntervalForm
+from .forms import RoundedMaintenanceDoseForm, CalculatedFieldsForm
 
 #added 2/11/25
 
@@ -304,13 +306,34 @@ def patient_list_view(request):
 def patient_create_view(request):
     if request.method == 'POST':
         # Create forms with the instance of the patient and related models with the submitted data
+        #input fields
         patient_form = PatientForm(request.POST)
         age_form = AgeForm(request.POST)
         weight_form = WeightForm(request.POST)
         demographics_form = DemographicsForm(request.POST)
-        creatinine_form = CreatinineForm(request.POST)
-        creatinine_form2 = CreatinineForm2(request.POST)
+        creatinine_form = CreatinineForm(request.POST, prefix='newest')
+        creatinine_form2 = CreatinineForm2(request.POST, prefix='oldest')
         drug_form = DrugForm(request.POST)
+        infusion_period_form = InfusionPeriodForm(request.POST)
+        calculated_fields_form = CalculatedFieldsForm(request.POST) # added 3/5/25
+       
+        # if 'dosage_interval' in request.POST:
+        #     rounded_dosage_interval_form = RoundedDosageIntervalForm(request.POST)
+        # else:
+        #     #rounded_dosage_interval_form = None
+        #     rounded_dosage_interval_form = RoundedDosageIntervalForm()
+
+        # # Check if RoundedMaintenanceDoseForm has been submitted
+        # if 'maintenance_dose' in request.POST:
+        #     rounded_maintenance_dose_form = RoundedMaintenanceDoseForm(request.POST)
+        # else:
+        # #rounded_dosage_interval_form = None
+        #    rounded_maintenance_dose_form = RoundedMaintenanceDoseForm()
+        
+        rounded_dosage_interval_form = RoundedDosageIntervalForm(request.POST)
+        
+        rounded_maintenance_dose_form = RoundedMaintenanceDoseForm(request.POST)
+        
 
         #The code snippet you provided is creating a context dictionary that will be passed to the template when rendering the form. 
         #This context dictionary contains the form instances and their associated media, which are necessary for rendering the forms correctly in the template
@@ -321,16 +344,43 @@ def patient_create_view(request):
             'age_form': age_form,
             'weight_form': weight_form,
             'demographics_form': demographics_form,
-            'creatinine_form': creatinine_form,
-            'creatinine_form2': creatinine_form2,
+            'creatinine_form': creatinine_form, #newest
+            'creatinine_form2': creatinine_form2, #oldest
             'drug_form': drug_form,
+            'infusion_period_form': infusion_period_form,
+            'rounded_dosage_interval_form': rounded_dosage_interval_form,
+            'rounded_maintenance_dose_form': rounded_maintenance_dose_form,
+            'calculated_fields_form': calculated_fields_form,
             'form_media': patient_form.media + age_form.media + weight_form.media + demographics_form.media + creatinine_form.media + creatinine_form2.media + drug_form.media,
         }
 
+        # Check if RoundedDosageIntervalForm has been submitted
+        if 'dosage_interval' in request.POST:
+            # Process the RoundedDosageIntervalForm
+            if rounded_dosage_interval_form.is_valid():
+                dosage_interval = rounded_dosage_interval_form.cleaned_data['dosage_interval']
+                print(f"Rounded Dosage Interval: {dosage_interval}")
+                # Add any additional processing for the rounded dosage interval here
+            else:
+                messages.error(request, "Rounded Dosage Interval Form submission failed")
+                messages.error(request, rounded_dosage_interval_form.errors)
+
+        if 'maintenance_dose' in request.POST:
+            # Process the RoundedDosageIntervalForm
+            if rounded_maintenance_dose_form.is_valid():
+                maintenance_dose = rounded_maintenance_dose_form.cleaned_data['maintenance_dose']
+                print(f"Rounded Dosage Interval: {maintenance_dose}")
+                # Add any additional processing for the rounded dosage interval here
+            else:
+                messages.error(request, "Rounded Dosage Interval Form submission failed")
+                messages.error(request, rounded_dosage_interval_form.errors)
+
+
         # see if all forms are valid
         try:
-            if all([patient_form.is_valid(), age_form.is_valid(), weight_form.is_valid(), demographics_form.is_valid(), creatinine_form.is_valid(), creatinine_form2.is_valid(), drug_form.is_valid()]):
-               
+            if all([patient_form.is_valid(), age_form.is_valid(), weight_form.is_valid(), demographics_form.is_valid(), creatinine_form.is_valid(), creatinine_form2.is_valid(), drug_form.is_valid(), infusion_period_form.is_valid()]):
+                #, rounded_dosage_interval_form.is_valid(), rounded_maintenance_dose_form.is_valid() # removed from is_valid() list 3/5/25
+                
                 print(f"Received Most Recent Creatinine line 334: {creatinine_form.cleaned_data['scr']} at {creatinine_form.cleaned_data['scrtime']}")
                 print(f"Received Second Most Recent Creatinine: {creatinine_form2.cleaned_data['scr']} at {creatinine_form2.cleaned_data['scrtime']}")
                 
@@ -355,18 +405,18 @@ def patient_create_view(request):
                 weight.patient = patient
                 weight.weightdate = timezone.now().date()
                 demographics.patient = patient
-                creatinine.patient = patient
-                creatinine2.patient = patient  # Set the patient field for the second creatinine form
+                creatinine.patient = patient # newest creatinine
+                creatinine2.patient = patient  # Set the patient field for the second creatinine form oldest creatinine
                 # Save the related models
-                print(f"Most Recent Creatinine line 361: {creatinine.scr} at {creatinine.scrtime}")
-                print(f"Second Most Recent Creatinine: {creatinine2.scr} at {creatinine2.scrtime}")
+                print(f"Most Recent Creatinine line 361: {creatinine.scr} at {creatinine.scrtime}") #newest creatinine
+                print(f"Second Most Recent Creatinine: {creatinine2.scr} at {creatinine2.scrtime}") #oldest creatinine
                
                 #This line saves the Age instance to the database. The age instance was created 
                 # earlier in the code using the age_form and associated with the patient instance.
                 age.save()
                 weight.save()
                 demographics.save()
-                creatinine.save()
+                creatinine.save() #newest creatinine
                 creatinine2.save()  # Save the second creatinine form
 
                 # Print the values of creatinine_form and creatinine_form2
@@ -388,12 +438,15 @@ def patient_create_view(request):
                         #patient_form.fields['lbw'].initial = lbw  # Set the lbw field in the form
                         context['lbw_label'] = 'Lean Body Weight (kg)'
                         context['lbw_value'] = lbw
-
+                        calculated_fields_form.initial.update({'lbw': lbw})
+                        #calculated_fields_form = CalculatedFieldsForm(initial={'lbw': lbw}) ## Pre-fill the calculated fields form with the calculated values
                        # patient.save()  # Save the patient instance to update lbw
-                        print(f"Lean Body Weight (LBW): {lbw}")
+                        print(f"Lean Body Weight (LBW) line 443: {lbw}")
                     except Exception as e:
                         messages.error(request, f"Error calculating LBW in patient_create_view: {e}")
+
                     
+                        
                     try:
                         dosingweight = dosingweightcalc(weight_value, lbw, drug_form.cleaned_data['drug'])
                         context['dosingweight_label'] = 'Dosing Weight (kg)'
@@ -403,39 +456,121 @@ def patient_create_view(request):
                         messages.error(request, f"Error calculating dosing weight in patient_create_view: {e}")
 
                     try:
-                        bsa_value = bsa(weight_value, height)
+                        bsa_value = bsacalc(weight_value, height)
                         context['bsa_label'] = 'BSA (m²)'
                         context['bsa_value'] = bsa_value
                         print(f"Body Surface Area (BSA): {bsa_value}")
                     except Exception as e:
                         messages.error(request, f"Error calculating BSA in patient_select_drug_view: {e}") 
-
+           
                     try:
                         clcr = creatinineclearancecalc(lbw, creatinine.scr, age_value, sex, height, bsa_value)
-                        context['creatinineclearance_label'] = 'Creatinine Clearance (mL/min)'
-                        context['creatinineclearance_value'] = clcr
-                        print(f"Creatinine Clearance (Clcr): {clcr}")
+                        context['creatinineclearance_label1'] = 'Creatinine Clearance (mL/min)'
+                        context['creatinineclearance_value1'] = clcr
+                        print(f"Creatinine Clearance (Clcr) most recent scr: {clcr}")
                     except Exception as e:
                         messages.error(request, f"Error calculating creatinine clearance in patient_select_drug_view: {e}") 
                 
                 # Obtain the second most recent creatinine value
                 creatinine_queryset = Creatinine.objects.filter(patient=patient).order_by('-scrtime')
-                if creatinine_queryset.count() > 1:
-                    creatinine2 = creatinine_queryset[1]
-                    creatinine = creatinine_queryset.first()  # Update the first creatinine value
-                else:
-                    creatinine2 = creatinine_queryset.first()
+                if creatinine_queryset.count() > 1:# If there are at least two creatinine values
+                    creatinine2 = creatinine_queryset[1] #oldest creatinine
+                    creatinine_value_old = creatinine2.scr  # Get the value of the second most recent creatinine
+                    creatinine_time_old = creatinine2.scrtime  # Get the time of the second most recent creatinine
+                    creatinine = creatinine_queryset.first()  # Update the newest creatinine value
+                    creatinine_value_new = creatinine.scr  # Get the value of the most recent creatinine
+                    creatinine_time_new = creatinine.scrtime  # Get the time of the most recent creatinine
+                else: # if only one creatinine value exists
+                    creatinine = creatinine_queryset.first()  # Get the most recent creatinine value
+                    creatinine_value_new = creatinine.scr  # Get the value of the most recent creatinine
+                    creatinine_time_new = creatinine.scrtime  # Get the time of the most recent creatinine
+                    creatinine2 = creatinine_queryset.first() # Set creatinine2 to the same value as creatinine
+                    creatinine_value_old = creatinine2.scr
+                    creatinine_time_old = creatinine2.scrtime
 
                 context['creatinine2'] = creatinine2  # Add creatinine2 to the context
                 context['creatinine'] = creatinine  # Add creatinine to the context
                 print(f"Creatinine: {creatinine}")
                 print(f"Creatinine2: {creatinine2}")
 
+                try:
+                    if creatinine_value_new != creatinine_value_old:
+                        hoursdifference = hoursdifferencecalc(creatinine_time_old, creatinine_time_new)
+                        print(f"Hours difference between creatinine values: {hoursdifference}")
+                        clcr =creatinineclearancecalc2(creatinine_value_old, creatinine_value_new, hoursdifference, age_value, sex, lbw, clcr, bsa_value, height)
+                        context['creatinineclearance_label2'] = 'Creatinine Clearance (mL/min) for changing Scrs'
+                        context['creatinineclearance_value2'] = clcr
+                        print(f"Creatinine Clearance (Clcr) using two scrs: {clcr}")
+                    else:
+                        hoursdifference = 24  # If the times are the same, set hoursdifference to 0
+                        print(f"Hours difference between creatinine values: {hoursdifference}")
+                
+                except Exception as e:
+                    messages.error(request, f"Error calculating hours difference in patient_create_view: {e}")
+                    print(f"Error calculating hours difference in patient_create_view: {e}")
+
+                try:
+                    k = eliminationratecalc(clcr, drug_form.cleaned_data['drug'], bsa_value)
+                    context['eliminationrate_label'] = 'Elimination Rate (1/h)'
+                    context['eliminationrate_value'] = k
+                    print(f"Elimination Rate: {k}")
+                except Exception as e:
+                    messages.error(request, f"Error calculating elimination rate in patient_create_view: {e}")
+
+                try:
+                    vd = Vdcalc(dosingweight, drug_form.cleaned_data['drug'])
+                    context['vd_label'] = 'Volume of Distribution (L)'
+                    context['vd_value'] = vd
+                    print(f"Volume of Distribution (Vd): {vd}")
+                except Exception as e:
+                    messages.error(request, f"Error calculating volume of distribution in patient_create_view: {e}")  
+
+                try:
+                    vdperkg = Vdperkgcalc(vd, dosingweight)
+                    context['vdperkg_label'] = 'Volume of Distribution per kg (L/kg)'
+                    context['vdperkg_value'] = vdperkg
+                    print(f"Volume of Distribution per kg (Vd/kg): {vdperkg}")
+                except Exception as e:
+                    messages.error(request, f"Error calculating volume of distribution per kg in patient_create_view: {e}")
+
+                try:
+                    halflife = drughalf_lifecalc(k)
+                    context['halflife_label'] = 'Half-Life (h)'
+                    context['halflife_value'] = halflife
+                    print(f"Half-Life (t½): {halflife}")
+                except Exception as e:
+                    messages.error(request, f"Error calculating half-life in patient_create_view: {e}") 
+
+                try:
+                    loadingdose = loadingdosecalc(infusion_period_form.cleaned_data['infusion_period'], k, drug_form.cleaned_data['drug'], vd)
+                    context['loadingdose_value'] = loadingdose
+                    context['loadingdose_label'] = 'Calculated Loading Dose (mg) for: <br>Vancomycin Peak of 30 mcg/ml <br>Gentamicin/tobramycin Peak of 10 mcg/ml <br>Amikacin Peak of 30 mcg/ml <br> Loading Dose (mg)'
+                    print(f"Loading Dose: {loadingdose}")
+                except Exception as e:
+                    messages.error(request, f"Error calculating loading dose in patient_create_view: {e}")    
+                
+                try:
+                    maintenancedose = maintenancedosecalc(drug_form.cleaned_data['drug'], dosingweight)
+                    context['maintenancedose_value'] = maintenancedose
+                    context['maintenancedose_label'] = 'Calculated Maintenance Dose (mg) for: <br>Vancomycin 15 mg/kg <br>Gentamicin/tobramycin 1.5 mg/kg <br>Amikacin 7.5 mg/kg <br> Maintenance Dose (mg)'
+                    print(f"Maintenance Dose: {maintenancedose}")
+                except Exception as e:
+                    messages.error(request, f"Error calculating maintenance dose in patient_create_view: {e}")
+                
+                try:
+                    tau=taucalc(drug_form.cleaned_data['drug'], k, infusion_period_form.cleaned_data['infusion_period'], vd, maintenancedose)
+                    context['tau_value'] = tau
+                    context['tau_label'] = 'Calculated Dosage Interval (h)'   
+                    print(f"Dosage Interval (tau): {tau}")
+                except Exception as e:
+                    messages.error(request, f"Error calculating dosage interval in patient_create_view: {e}")
+
+
                 messages.success(request, "Form submitted successfully")
                 return render(request, 'account/patient_form.html', context)
             else:
                 print("Form Patient Create View submission failed")
-                print(patient_form.errors, age_form.errors, weight_form.errors, demographics_form.errors, creatinine_form.errors, drug_form.errors)
+                print(patient_form.errors, age_form.errors, weight_form.errors, demographics_form.errors, creatinine_form.errors, drug_form.errors, infusion_period_form.errors, rounded_dosage_interval_form.errors, rounded_maintenance_dose_form.errors)
                 messages.error(request, "Form submission failed")
                 messages.error(request, patient_form.errors)
                 messages.error(request, age_form.errors)
@@ -444,6 +579,9 @@ def patient_create_view(request):
                 messages.error(request, creatinine_form.errors)
                 messages.error(request, creatinine_form2.errors)  # Add this line to display errors for the second creatinine form
                 messages.error(request, drug_form.errors)
+                messages.error(request, infusion_period_form.errors)
+                messages.error(request, rounded_dosage_interval_form.errors)
+                messages.error(request, rounded_maintenance_dose_form.errors)
         except Exception as e:
             messages.error(request, f"An error occurred: {e}")
             print(f"An error occurred: {e}")
@@ -453,9 +591,13 @@ def patient_create_view(request):
         age_form = AgeForm()
         weight_form = WeightForm()
         demographics_form = DemographicsForm()
-        creatinine_form = CreatinineForm()
-        creatinine_form2 = CreatinineForm2()  # Initialize the second creatinine form
+        creatinine_form = CreatinineForm(prefix = 'newest')  # Initialize the first creatinine form with a prefix
+        creatinine_form2 = CreatinineForm2(prefix='oldest')  # Initialize the second creatinine form
         drug_form = DrugForm()
+        infusion_period_form = InfusionPeriodForm() # not connected to db
+        rounded_dosage_interval_form = RoundedDosageIntervalForm() # not connected to db
+        rounded_maintenance_dose_form = RoundedMaintenanceDoseForm() # not connected to db
+        calculated_fields_form = CalculatedFieldsForm()  # Initialize the calculated fields form
 
     #creatinine2 = None  # Initialize creatinine2 to None
     #creatinine = None  # Initialize creatinine to None
@@ -475,6 +617,10 @@ def patient_create_view(request):
         'creatinine_form': creatinine_form,
         'creatinine_form2': creatinine_form2,  # Add the second creatinine form to the context
         'drug_form': drug_form,
+        'infusion_period_form' : infusion_period_form,
+        'rounded_dosage_interval_form': rounded_dosage_interval_form,
+        'rounded_maintenance_dose_form': rounded_maintenance_dose_form,
+        'calculated_fields_form': calculated_fields_form,  # Add the calculated fields form to the context
     #    'creatinine': creatinine,  # Add creatinine to the context
     #    'creatinine2': creatinine2,  # Add creatinine2 to the context 
         'form_media': patient_form.media + age_form.media + weight_form.media + demographics_form.media + creatinine_form.media + creatinine_form2.media + drug_form.media,
@@ -515,7 +661,7 @@ def patient_edit_view(request, patient_id):
         }
 
         try:
-            if all([patient_form.is_valid(), age_form.is_valid(), weight_form.is_valid(), demographics_form.is_valid(), creatinine_form.is_valid(), drug_form.is_valid]):
+            if all([patient_form.is_valid(), age_form.is_valid(), weight_form.is_valid(), demographics_form.is_valid(), creatinine_form.is_valid(), drug_form.is_valid()]):
                 patient_form.save()
                 # If is_valid() is True, we’ll now be able to find all the validated form data in its cleaned_data attribute.
                 # We can use this data to update the database or do other processing before sending an HTTP redirect to the browser telling it where to go next.    
@@ -562,7 +708,7 @@ def patient_edit_view(request, patient_id):
                         messages.error(request, f"Error calculating dosing weight in Patient_Edit_View: {e}")    
                     
                     try:
-                        bsa_value = bsa(weight_value, height)
+                        bsa_value = bsacalc(weight_value, height)
                         context['bsa_label'] = 'BSA (m²)'
                         context['bsa_value'] = bsa_value
                         print(f"Body Surface Area (BSA): {bsa_value}")
@@ -637,7 +783,8 @@ def patient_select_drug_view(request, patient_id):
         age_form = AgeForm(request.POST, instance=age)
         weight_form = WeightForm(request.POST, instance=weight)
         demographics_form = DemographicsForm(request.POST, instance=demographics)
-        creatinine_form = CreatinineForm(request.POST, instance=creatinine)
+        creatinine_form = CreatinineForm(request.POST, instance=creatinine, prefix='newest')  # Initialize the first creatinine form with a prefix
+        creatinine_form2 = CreatinineForm2(request.POST, instance=creatinine2, prefix='oldest')  # Initialize the second creatinine form
         drug_form = DrugForm(request.POST)
 
         context = {
@@ -646,13 +793,14 @@ def patient_select_drug_view(request, patient_id):
             'weight_form': weight_form,
             'demographics_form': demographics_form,
             'creatinine_form': creatinine_form,
+            'creatinine_form2': creatinine_form2,  # Add the second creatinine form to the context
             'drug_form': drug_form,
             'creatinine2': creatinine2,  # Add creatinine2 to the context
-            'form_media': patient_form.media + age_form.media + weight_form.media + demographics_form.media + creatinine_form.media + drug_form.media,
+            'form_media': patient_form.media + age_form.media + weight_form.media + demographics_form.media + creatinine_form.media + creatinine_form2.media + drug_form.media,
         }
 
         try:
-            if all([patient_form.is_valid(), age_form.is_valid(), weight_form.is_valid(), demographics_form.is_valid(), creatinine_form.is_valid(), drug_form.is_valid()]):
+            if all([patient_form.is_valid(), age_form.is_valid(), weight_form.is_valid(), demographics_form.is_valid(), creatinine_form.is_valid(), creatinine_form2.is_valid(), drug_form.is_valid()]):
                 # Process the selected drug without saving it to the Patient model
                 selected_drug = drug_form.cleaned_data['drug']
                 print(f"Selected Drug: {selected_drug}")
@@ -665,6 +813,7 @@ def patient_select_drug_view(request, patient_id):
                 weight = weight_form.save(commit=False)
                 demographics = demographics_form.save(commit=False)
                 creatinine = creatinine_form.save(commit=False)
+                creatinine2 = creatinine_form2.save(commit=False)  # Save the second creatinine form
                 # drug_form does not need to be saved here as it is not tied to the model
                 # Set the patient field for related models  
                 age.agedate = timezone.now().date()  # Set the agedate
@@ -674,6 +823,7 @@ def patient_select_drug_view(request, patient_id):
                 weight.save()
                 demographics.save()
                 creatinine.save()
+                creatinine2.save()  # Save the second creatinine form
 
                 # end of added from patient_edit_view
 
@@ -703,7 +853,7 @@ def patient_select_drug_view(request, patient_id):
                         messages.error(request, f"Error calculating dosing weight in patient_select_drug_view: {e}")
                     
                     try:
-                        bsa_value = bsa(weight_value, height)
+                        bsa_value = bsacalc(weight_value, height)
                         context['bsa_label'] = 'BSA (m²)'
                         context['bsa_value'] = bsa_value
                         print(f"Body Surface Area (BSA): {bsa_value}")
@@ -731,6 +881,7 @@ def patient_select_drug_view(request, patient_id):
                 messages.error(request, weight_form.errors)
                 messages.error(request, demographics_form.errors)
                 messages.error(request, creatinine_form.errors)
+                messages.error(request, creatinine_form2.errors)
                 messages.error(request, drug_form.errors)
         except Exception as e:
             messages.error(request, f"An error occurred: {e}")
@@ -741,7 +892,8 @@ def patient_select_drug_view(request, patient_id):
         age_form = AgeForm(instance=age)
         weight_form = WeightForm(instance=weight)
         demographics_form = DemographicsForm(instance=demographics)
-        creatinine_form = CreatinineForm(instance=creatinine)
+        creatinine_form = CreatinineForm(instance=creatinine, prefix='newest')  # Initialize the first creatinine form with a prefix
+        creatinine_form2 = CreatinineForm2(instance=creatinine2, prefix='oldest')  # Initialize the second creatinine form
         drug_form = DrugForm()
 
     context = {
@@ -750,9 +902,9 @@ def patient_select_drug_view(request, patient_id):
         'weight_form': weight_form,
         'demographics_form': demographics_form,
         'creatinine_form': creatinine_form,
-        'creatinine2': creatinine2,  # Add creatinine2 to the context
+        'creatinine_form2': creatinine_form2,  # Add creatinine2 to the context
         'drug_form': drug_form,
-        'form_media': patient_form.media + age_form.media + weight_form.media + demographics_form.media + creatinine_form.media + drug_form.media,
+        'form_media': patient_form.media + age_form.media + weight_form.media + demographics_form.media + creatinine_form.media + creatinine_form2.media + drug_form.media,
     }
 
     return render(request, 'account/patient_form.html', context)

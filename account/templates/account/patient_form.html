@@ -21,6 +21,9 @@
     {{ creatinine_form.as_p }}
     {{ creatinine_form2.as_p }}
     {{ drug_form.as_p }} 
+    {{ infusion_period_form.as_p }}
+    {{ calculated_fields_form}}
+   
     {% if lbw_label and lbw_value %}
         <p><strong>{{ lbw_label }}:</strong> {{ lbw_value }}</p>
     {% endif %}
@@ -30,10 +33,47 @@
     {% if bsa_label and bsa_value %}
         <p><strong>{{ bsa_label }}:</strong> {{ bsa_value }}</p>
     {% endif %}
-    {% if creatinineclearance_label and creatinineclearance_value %}
-        <p><strong>{{ creatinineclearance_label }}:</strong> {{ creatinineclearance_value }}</p>
+    {% if creatinineclearance_label1 and creatinineclearance_value1 %}
+        <p><strong>{{ creatinineclearance_label1 }}:</strong> {{ creatinineclearance_value1 }}</p>
+    {% endif %}
+    {% if creatinineclearance_label2 and creatinineclearance_value2 %}
+    <p><strong>{{ creatinineclearance_label2 }}:</strong> {{ creatinineclearance_value2 }}</p>
+    {% endif %}
+    {% if eliminationrate_label and eliminationrate_value %}
+    <p><strong>{{ eliminationrate_label }}:</strong> {{ eliminationrate_value }}</p>
+    {% endif %}
+    {% if halflife_label and halflife_value %}
+    <p><strong>{{ halflife_label }}:</strong> {{ halflife_value }}</p>
+    {% endif %}
+    {% if vd_label and vd_value %}
+    <p><strong>{{ vd_label }}:</strong> {{ vd_value }}</p>
+    {% endif %}
+    {% if vdperkg_label and vdperkg_value %}
+    <p><strong>{{ vdperkg_label }}:</strong> {{ vdperkg_value }}</p>
     {% endif %}
    
+    {% if loadingdose_label and loadingdose_value %}
+    <p><strong>{{ loadingdose_label|safe }}:</strong> {{ loadingdose_value }}</p>
+    {% endif %}
+    {% if maintenancedose_label and maintenancedose_value %}
+    <p><strong>{{ maintenancedose_label|safe }}:</strong> {{ maintenancedose_value }}</p>
+    {% endif %}
+    {% if tau_label and tau_value %}
+    <p><strong>{{ tau_label|safe }}:</strong> {{ tau_value }}</p>
+    {% endif %}
+    {{ calculated_fields_form.as_p }}
+    {% if tau_label and tau_value %}
+      {{ rounded_dosage_interval_form.as_p }}
+    {% endif %}
+
+    {% if maintenancedose_label and maintenancedose_value %}
+      {{ rounded_maintenance_dose_form.as_p }}
+    {% endif %}
+    
+    
+    
+    
+
     <button type="submit">Submit</button>
   </form>
 {% endblock %}

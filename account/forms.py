@@ -237,3 +237,47 @@ class DrugForm(forms.Form):
     ]
 
     drug = forms.ChoiceField(choices=DRUG_CHOICES, label='Select Drug')
+
+class InfusionPeriodForm(forms.Form):  # not saved to db
+    infusion_period = forms.DecimalField(
+        label='Infusion Period (hours)',
+        min_value=0.15,
+        max_value=24,
+        decimal_places=2,
+        max_digits=5
+    ) 
+
+class RoundedDosageIntervalForm(forms.Form): # not saved to db
+    DOSAGE_INTERVAL_CHOICES = [
+        (6, '6 hours'),
+        (8, '8 hours'),
+        (12, '12 hours'),
+        (16, '16 hours'),
+        (18, '18 hours'),
+        (24, '24 hours'),
+        (36, '36 hours'),
+        (48, '48 hours'),
+        (72, '72 hours'),
+        (96, '96 hours'),
+        (120, '120 hours'),
+        (144, '144 hours'),
+        (168, '168 hours'),
+    ]
+    dosage_interval = forms.ChoiceField(
+        choices=DOSAGE_INTERVAL_CHOICES,
+        label='Enter Rounded Dosage Interval (hours)'
+    )
+    
+
+class RoundedMaintenanceDoseForm(forms.Form):
+    maintanence_dose = forms.DecimalField(
+        label='Rounded Maintenance Dose (mg)',
+        min_value=0.1,
+        max_value=5000,
+        decimal_places=2,
+        max_digits=6
+  ) 
+
+class CalculatedFieldsForm(forms.Form): # not saved to db
+    lbw = forms.DecimalField(label='Lean Body Weight (kg)', decimal_places=2, max_digits=6, required=False)
+  
