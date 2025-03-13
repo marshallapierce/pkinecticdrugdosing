@@ -11,6 +11,21 @@
        
     <p><a href="{% url 'my_patients' %}">View my patients</a></p>    
     <p><a href="{% url 'create_patient' %}">Create a new patient</a></p>
+    <!-- Add a link to select a patient for doses -->       
+    <p><a href="{% url 'select_patient_for_doses' %}">Select Patient for Doses</a></p>
+
+<!-- Add other dashboard content here -->
+    
+    <!-- Example of listing patients and adding a link to the doses view -->
+<ul>
+    {% for patient in patients %}
+    <li>
+        {{ patient.patient_name }} - <a href="{% url 'patient_doses' patient.id %}">View Doses</a>
+    </li>
+    {% endfor %}
+</ul>
+
+<!-- Add other dashboard content here -->
     
    
     <p>You can also <a href="{% url 'edit' %}">edit your profile</a> or <a href="{% url 'password_change' %}">change your password</a>.</p>

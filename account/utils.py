@@ -449,7 +449,7 @@ def maintenancedosecalc(drug, dosingweight):
     return maintenancedose
 
 
-def taucalc(drug, EliminationRate, InfusionPeriod, Vd, MaintenanceDose):
+def taucalc(drug, EliminationRate, InfusionPeriod, Vd, MaintenanceDose): #estimate tau
     try:
         # Convert EliminationRate, InfusionPeriod, MaintenanceDose to float
         EliminationRate = float(EliminationRate)
@@ -475,3 +475,55 @@ def taucalc(drug, EliminationRate, InfusionPeriod, Vd, MaintenanceDose):
         print(traceback.format_exc())
         return None
 
+def peaksscalc(RoundedMaintenanceDose, vd, Eliminationrate, Roundedtau, InfusionPeriod):
+    try:
+        # Convert RoundedMaintenanceDose, vd, Eliminationrate, Roundedtau, InfusionPeriod to float
+        RoundedMaintenanceDose = float(RoundedMaintenanceDose)
+        vd = float(vd)
+        Eliminationrate = float(Eliminationrate)
+        Roundedtau = float(Roundedtau)
+        InfusionPeriod = float(InfusionPeriod)
+        peakss=(RoundedMaintenanceDose*(1-math.exp(-Eliminationrate*InfusionPeriod)))/(vd*Eliminationrate*InfusionPeriod*(1-math.exp(-Eliminationrate*Roundedtau)))
+        peakss = Decimal(peakss).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return peakss
+    except (TypeError, ValueError, ZeroDivisionError) as e:
+         # Log the error or handle it as needed
+        print(f"Error calculating peakss: {e}")
+        print(traceback.format_exc())
+        return None
+    
+def troughsscalc(peakss, Eliminationrate, Roundedtau, InfusionPeriod):
+    try:
+        # Convert peakss, Eliminationrate, Roundedtau, InfusionPeriod to float
+        peakss = float(peakss)
+        Eliminationrate = float(Eliminationrate)
+        Roundedtau = float(Roundedtau)
+        InfusionPeriod = float(InfusionPeriod)
+        troughss=peakss*math.exp(-Eliminationrate*(Roundedtau-InfusionPeriod))
+        if troughss < 0.01:
+            troughss = 0.00
+        else:
+            troughss = Decimal(troughss).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return troughss
+    except (TypeError, ValueError, ZeroDivisionError) as e:
+         # Log the error or handle it as needed
+        print(f"Error calculating troughss: {e}")
+        print(traceback.format_exc())
+        return None
+
+def auc24calc(RoundedMaintenanceDose, Eliminationrate, Roundedtau, vd):
+    try:
+        # Convert RoundedMaintenanceDose, Eliminationrate, Roundedtau, vd to float
+        RoundedMaintenanceDose = float(RoundedMaintenanceDose)
+        Eliminationrate = float(Eliminationrate)
+        Roundedtau = float(Roundedtau)
+        #InfusionPeriod = float(InfusionPeriod)
+        vd= float(vd)
+        auc24=(RoundedMaintenanceDose*24/Roundedtau)/(vd*Eliminationrate)
+        auc24 = Decimal(auc24).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return auc24
+    except (TypeError, ValueError, ZeroDivisionError) as e:
+         # Log the error or handle it as needed
+        print(f"Error calculating AUC24: {e}")
+        print(traceback.format_exc())
+        return None

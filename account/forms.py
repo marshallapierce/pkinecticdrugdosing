@@ -1,6 +1,7 @@
 from django import forms
+from django.forms import modelformset_factory, BaseModelFormSet
 from django.contrib.auth import get_user_model
-from .models import Profile
+from .models import Profile, Dose
 
 #added 2/11/25
 from .models import Patient, Age, Weight, Demographics, Creatinine
@@ -8,6 +9,7 @@ from .utils import leanbodyweightcalc
 from django.utils import timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from bootstrap_datepicker_plus.widgets import DateTimePickerInput
+
 
 
 class LoginForm(forms.Form):
@@ -167,7 +169,7 @@ class DemographicsForm(forms.ModelForm):
 
     class Meta:
         model = Demographics
-        fields = ['heightinches', 'sex', 'height_unit'] #, 'height_unit'
+        fields = ['heightinches', 'height_unit', 'sex'] #, 'height_unit'
         labels = {
             'heightinches': 'Height',
             'sex': 'Sex',
@@ -263,14 +265,14 @@ class RoundedDosageIntervalForm(forms.Form): # not saved to db
         (144, '144 hours'),
         (168, '168 hours'),
     ]
-    dosage_interval = forms.ChoiceField(
+    dosage_interval = forms.ChoiceField(  # not saved to db
         choices=DOSAGE_INTERVAL_CHOICES,
         label='Enter Rounded Dosage Interval (hours)'
     )
     
 
-class RoundedMaintenanceDoseForm(forms.Form):
-    maintanence_dose = forms.DecimalField(
+class RoundedMaintenanceDoseForm(forms.Form): # not saved to db
+    maintenance_dose = forms.DecimalField(
         label='Rounded Maintenance Dose (mg)',
         min_value=0.1,
         max_value=5000,
@@ -279,5 +281,42 @@ class RoundedMaintenanceDoseForm(forms.Form):
   ) 
 
 class CalculatedFieldsForm(forms.Form): # not saved to db
-    lbw = forms.DecimalField(label='Lean Body Weight (kg)', decimal_places=2, max_digits=6, required=False)
-  
+    lbw = forms.DecimalField(label='Lean Body Weight (kg)', decimal_places=2, max_digits=6, required=False, widget =forms.NumberInput( ))
+
+class DoseForm(forms.ModelForm):
+    dosetime = forms.DateTimeField(
+        widget=DateTimePickerInput(),
+        label='Date and Time of Dose'
+    )
+    # dose_id = forms.CharField( # remove all of this
+    #     widget=forms.TextInput(attrs={'placeholder': 'Auto-generated Dose ID', 'readonly': 'readonly'}),
+    #     label='Dose ID',
+    #     required=False
+    # )
+
+    class Meta:
+        model = Dose
+        fields = ['dose', 'dosetime', 'drug']# take all all dose_id stuff
+        labels = {
+            'dose_id': 'Dose ID',
+            'dose': 'Dose (mg)',
+            'dosetime': 'Date and Time of Dose',
+            'drug': 'Drug',
+        }
+        
+
+
+class BaseDoseFormSet(BaseModelFormSet):
+    def clean(self):
+        if any(self.errors):
+            return
+
+        for form in self.forms:
+            if not form.cleaned_data:
+                continue  # Ignore empty forms
+            # Add any additional validation logic here
+            if not form.cleaned_data.get('dose') or not form.cleaned_data.get('dosetime'):
+                raise forms.ValidationError("All fields must be filled out.")
+
+#DoseFormSet = modelformset_factory(Dose, form=DoseForm, extra=1) 
+DoseFormSet = modelformset_factory(Dose, form=DoseForm, formset=BaseDoseFormSet, extra=1)

@@ -13,8 +13,41 @@
 <form method="post">
   {% csrf_token %}
   {{ patient_form.non_field_errors }}
-  
-    {{ patient_form.as_p }}
+  <table>
+    <tr>
+      <td>{{ patient_form.as_p }}</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>{{ age_form.as_p }}</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>{{ weight_form.as_p }}</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td> {{ demographics_form.as_p }}</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>{{ creatinine_form.as_p }}</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>{{ creatinine_form2.as_p }}</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>{{ drug_form.as_p }}</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>{{ infusion_period_form.as_p }}</td>
+      <td></td>
+  </table>
+
+   <!-- {{ patient_form.as_p }}
     {{ age_form.as_p }}
     {{ weight_form.as_p }}
     {{ demographics_form.as_p }}
@@ -22,7 +55,7 @@
     {{ creatinine_form2.as_p }}
     {{ drug_form.as_p }} 
     {{ infusion_period_form.as_p }}
-    {{ calculated_fields_form.as_p}}
+    {{ calculated_fields_form.as_p}} -->
    
     {% if lbw_label and lbw_value %}
         <p><strong>{{ lbw_label }}:</strong> {{ lbw_value }}</p>
@@ -61,15 +94,26 @@
     {% if tau_label and tau_value %}
     <p><strong>{{ tau_label|safe }}:</strong> {{ tau_value }}</p>
     {% endif %}
-    {{ calculated_fields_form.as_p }}
+
+    <!-- if the dosage interval has been calculated, display the form -->
     {% if tau_label and tau_value %}
       {{ rounded_dosage_interval_form.as_p }}
     {% endif %}
-
+    <!-- if maintenance dose has been calculated, display the form -->
     {% if maintenancedose_label and maintenancedose_value %}
       {{ rounded_maintenance_dose_form.as_p }}
     {% endif %}
-    
+
+
+    {% if peakss_label and peakss_value %}
+    <p><strong>{{ peakss_label|safe }}:</strong> {{ peakss_value }}</p>
+    {% endif %}
+    {% if troughss_label and troughss_value %}
+    <p><strong>{{ troughss_label|safe }}:</strong> {{ troughss_value }}</p>
+    {% endif %}
+    {% if auc24_label and auc24_value %}
+    <p><strong>{{ auc24_label|safe }}:</strong> {{ auc24_value }}</p>
+    {% endif %}
     
     
     

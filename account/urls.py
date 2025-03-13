@@ -29,6 +29,10 @@ urlpatterns = [
     path('edit-patient/<int:patient_id>/', patient_edit_view, name='edit_patient'),
     # Add other URL patterns here
     path('select-drug/<int:patient_id>/', views.patient_select_drug_view, name='select_drug'),
+   
+    # path('patient/<int:patient_id>/', views.patient_doses_view, name='patient_doses'),
+    path('select-patient-for-doses/', views.select_patient_for_doses_view, name='select_patient_for_doses'),
+    path('patient/<int:patient_id>/doses/', views.patient_doses_view, name='patient_doses'),
 
 
 ]

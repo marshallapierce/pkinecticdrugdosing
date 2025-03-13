@@ -1,0 +1,24 @@
+
+
+
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Select Patient and Drug for Doses</h1>
+
+<form method="post">
+  {% csrf_token %}
+  <label for="patient_id">Select Patient:</label>
+  <select name="patient_id" id="patient_id">
+    {% for patient in patients %}
+    <option value="{{ patient.patient_id }}">{{ patient.patient_name }}</option>
+    {% endfor %}
+  </select>
+
+  {{ drug_form.as_p }}
+
+  <button type="submit">Select</button>
+</form>
+
+{% endblock %}
+

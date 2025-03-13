@@ -7,13 +7,14 @@ from django.shortcuts import render, redirect, get_object_or_404
 from .forms import LoginForm, UserRegistrationForm, UserEditForm, ProfileEditForm
 from .models import Profile
 from django.contrib import messages
-from .models import Patient, Age, Weight, Demographics, Creatinine
+from .models import Patient, Age, Weight, Demographics, Creatinine, Dose
 from .utils import bsacalc, leanbodyweightcalc, dosingweightcalc, creatinineclearancecalc, hoursdifferencecalc, creatinineclearancecalc2
-from .utils import eliminationratecalc, Vdcalc, Vdperkgcalc, drughalf_lifecalc, loadingdosecalc, maintenancedosecalc, taucalc
+from .utils import eliminationratecalc, Vdcalc, Vdperkgcalc, drughalf_lifecalc, loadingdosecalc, maintenancedosecalc, taucalc, peaksscalc
+from .utils import troughsscalc, auc24calc
 from django.utils import timezone
 from .forms import PatientForm, AgeForm, WeightForm, DemographicsForm, CreatinineForm, DrugForm, CreatinineForm2, InfusionPeriodForm, RoundedDosageIntervalForm
-from .forms import RoundedMaintenanceDoseForm, CalculatedFieldsForm
-
+from .forms import RoundedMaintenanceDoseForm, CalculatedFieldsForm, DoseFormSet
+from django.urls import reverse
 #added 2/11/25
 
 from decimal import Decimal, InvalidOperation
@@ -316,7 +317,7 @@ def patient_create_view(request):
         drug_form = DrugForm(request.POST)
         infusion_period_form = InfusionPeriodForm(request.POST)
         calculated_fields_form = CalculatedFieldsForm(request.POST) # added 3/5/25
-       
+        #formset = DoseFormSet(request.POST, queryset=Dose.objects.none())  # Initialize the formset with no initial queryset       
         # if 'dosage_interval' in request.POST:
         #     rounded_dosage_interval_form = RoundedDosageIntervalForm(request.POST)
         # else:
@@ -351,10 +352,11 @@ def patient_create_view(request):
             'rounded_dosage_interval_form': rounded_dosage_interval_form,
             'rounded_maintenance_dose_form': rounded_maintenance_dose_form,
             'calculated_fields_form': calculated_fields_form,
+        #    'formset': formset,
             'form_media': patient_form.media + age_form.media + weight_form.media + demographics_form.media + creatinine_form.media + creatinine_form2.media + drug_form.media,
         }
 
-        # Check if RoundedDosageIntervalForm has been submitted
+        # Check if RoundedDosageIntervalForm has been submitted beofre getting varibles
         if 'dosage_interval' in request.POST:
             # Process the RoundedDosageIntervalForm
             if rounded_dosage_interval_form.is_valid():
@@ -364,8 +366,8 @@ def patient_create_view(request):
             else:
                 messages.error(request, "Rounded Dosage Interval Form submission failed")
                 messages.error(request, rounded_dosage_interval_form.errors)
-
-        if 'maintenance_dose' in request.POST:
+        # Check if RoundedMaintenanceDoseForm has been submitted
+        if 'maintenance_dose' in request.POST: #this is rounded maintenance dose
             # Process the RoundedDosageIntervalForm
             if rounded_maintenance_dose_form.is_valid():
                 maintenance_dose = rounded_maintenance_dose_form.cleaned_data['maintenance_dose']
@@ -378,7 +380,7 @@ def patient_create_view(request):
 
         # see if all forms are valid
         try:
-            if all([patient_form.is_valid(), age_form.is_valid(), weight_form.is_valid(), demographics_form.is_valid(), creatinine_form.is_valid(), creatinine_form2.is_valid(), drug_form.is_valid(), infusion_period_form.is_valid()]):
+            if all([patient_form.is_valid(), age_form.is_valid(), weight_form.is_valid(), demographics_form.is_valid(), creatinine_form.is_valid(), creatinine_form2.is_valid(), drug_form.is_valid(), infusion_period_form.is_valid()]):#, formset.is_valid()
                 #, rounded_dosage_interval_form.is_valid(), rounded_maintenance_dose_form.is_valid() # removed from is_valid() list 3/5/25
                 
                 print(f"Received Most Recent Creatinine line 334: {creatinine_form.cleaned_data['scr']} at {creatinine_form.cleaned_data['scrtime']}")
@@ -431,6 +433,12 @@ def patient_create_view(request):
                 age_value = age.age
                 sex = demographics.sex
 
+                 # Process the formset
+                # doses = formset.save(commit=False)
+                # for dose in doses:
+                #     dose.patient = patient
+                #     dose.save()
+
                 if height and weight_value and height_unit and weight_unit and age_value and sex:
                     try:
                         lbw = leanbodyweightcalc(height, weight_value, height_unit, weight_unit, age_value, sex)
@@ -438,6 +446,9 @@ def patient_create_view(request):
                         #patient_form.fields['lbw'].initial = lbw  # Set the lbw field in the form
                         context['lbw_label'] = 'Lean Body Weight (kg)'
                         context['lbw_value'] = lbw
+                        #form_data = calculated_fields_form  # Copy the cleaned data from the calculated fields form
+                        #form_data['lbw'] = lbw  # Update the lbw field in the form data
+                        #calculated_fields_form = CalculatedFieldsForm(form_data)  # Create a new calculated fields form with the updated data
                         calculated_fields_form.initial.update({'lbw': lbw})
                         #calculated_fields_form = CalculatedFieldsForm(initial={'lbw': lbw}) ## Pre-fill the calculated fields form with the calculated values
                        # patient.save()  # Save the patient instance to update lbw
@@ -550,7 +561,7 @@ def patient_create_view(request):
                     messages.error(request, f"Error calculating loading dose in patient_create_view: {e}")    
                 
                 try:
-                    maintenancedose = maintenancedosecalc(drug_form.cleaned_data['drug'], dosingweight)
+                    maintenancedose = maintenancedosecalc(drug_form.cleaned_data['drug'], dosingweight) #estimated maintenance dose
                     context['maintenancedose_value'] = maintenancedose
                     context['maintenancedose_label'] = 'Calculated Maintenance Dose (mg) for: <br>Vancomycin 15 mg/kg <br>Gentamicin/tobramycin 1.5 mg/kg <br>Amikacin 7.5 mg/kg <br> Maintenance Dose (mg)'
                     print(f"Maintenance Dose: {maintenancedose}")
@@ -559,12 +570,57 @@ def patient_create_view(request):
                 
                 try:
                     tau=taucalc(drug_form.cleaned_data['drug'], k, infusion_period_form.cleaned_data['infusion_period'], vd, maintenancedose)
-                    context['tau_value'] = tau
+                    context['tau_value'] = tau #estimated dosage interval
                     context['tau_label'] = 'Calculated Dosage Interval (h)'   
                     print(f"Dosage Interval (tau): {tau}")
                 except Exception as e:
                     messages.error(request, f"Error calculating dosage interval in patient_create_view: {e}")
 
+                # try:
+                #     peakss = peaksscalc(maintenance_dose, vd, k, rounded_dosage_interval_form.cleaned_data['dosage_interval'], infusion_period_form.cleaned_data['infusion_period'])
+                #     context['peakss_value'] = peakss
+                #     context['peakss_label'] = 'Calculated Peak Steady State (mg/L)'
+                #     print(f"Peak Steady State: {peakss}")
+                # except Exception as e:  
+                #     messages.error(request, f"Error calculating peak steady state in patient_create_view: {e}")
+
+                # try:
+                #     troughss = troughsscalc(peakss, k, rounded_dosage_interval_form.cleaned_data['dosage_interval'], infusion_period_form.cleaned_data['infusion_period'])
+                #     context['troughss_value'] = troughss
+                #     context['troughss_label'] = 'Calculated Trough Steady State (mg/L)'
+                #     print(f"Trough Steady State: {troughss}")
+                # except Exception as e:
+                #     messages.error(request, f"Error calculating trough steady state in patient_create_view: {e}")
+
+                # Check if rounded_maintenance_dose_form is valid before calculating peakss and troughss
+                if rounded_maintenance_dose_form.is_valid():#only run code if rounded_maintenance_dose_form is valid
+                    try:
+                        peakss = peaksscalc(maintenance_dose, vd, k, rounded_dosage_interval_form.cleaned_data['dosage_interval'], infusion_period_form.cleaned_data['infusion_period'])
+                        context['peakss_value'] = peakss
+                        context['peakss_label'] = 'Calculated Peak Steady State (mg/L)'
+                        calculated_fields_form.initial.update({'peakss': peakss})
+                        print(f"Peak Steady State: {peakss}")
+                    except Exception as e:
+                        messages.error(request, f"Error calculating peak steady state in patient_create_view: {e}")
+
+                    try:
+                        troughss = troughsscalc(peakss, k, rounded_dosage_interval_form.cleaned_data['dosage_interval'], infusion_period_form.cleaned_data['infusion_period'])
+                        context['troughss_value'] = troughss
+                        context['troughss_label'] = 'Calculated Trough Steady State (mg/L)'
+                        calculated_fields_form.initial.update({'troughss': troughss})
+                        print(f"Trough Steady State: {troughss}")
+                    except Exception as e:
+                        messages.error(request, f"Error calculating trough steady state in patient_create_view: {e}")
+                # else:
+                #     messages.error(request, "Rounded Maintenance Dose Form is not valid. Peak and Trough calculations skipped.")
+                #     messages.error(request, rounded_maintenance_dose_form.errors)
+                    try:
+                        auc24 = auc24calc(maintenance_dose, k, rounded_dosage_interval_form.cleaned_data['dosage_interval'], vd)
+                        context['auc24_value'] = auc24
+                        context['auc24_label'] = 'Calculated AUC24 (mg*h/L)'
+                        print(f"AUC24: {auc24}")
+                    except Exception as e:
+                        messages.error(request, f"Error calculating AUC24 in patient_create_view: {e}")
 
                 messages.success(request, "Form submitted successfully")
                 return render(request, 'account/patient_form.html', context)
@@ -582,6 +638,7 @@ def patient_create_view(request):
                 messages.error(request, infusion_period_form.errors)
                 messages.error(request, rounded_dosage_interval_form.errors)
                 messages.error(request, rounded_maintenance_dose_form.errors)
+                #messages.error(request, formset.errors)
         except Exception as e:
             messages.error(request, f"An error occurred: {e}")
             print(f"An error occurred: {e}")
@@ -597,7 +654,8 @@ def patient_create_view(request):
         infusion_period_form = InfusionPeriodForm() # not connected to db
         rounded_dosage_interval_form = RoundedDosageIntervalForm() # not connected to db
         rounded_maintenance_dose_form = RoundedMaintenanceDoseForm() # not connected to db
-        calculated_fields_form = CalculatedFieldsForm()  # Initialize the calculated fields form
+       # calculated_fields_form = CalculatedFieldsForm()  # Initialize the calculated fields form
+       # formset = DoseFormSet(queryset=Dose.objects.none())  # Initialize the formset with no initial queryset
 
     #creatinine2 = None  # Initialize creatinine2 to None
     #creatinine = None  # Initialize creatinine to None
@@ -620,7 +678,8 @@ def patient_create_view(request):
         'infusion_period_form' : infusion_period_form,
         'rounded_dosage_interval_form': rounded_dosage_interval_form,
         'rounded_maintenance_dose_form': rounded_maintenance_dose_form,
-        'calculated_fields_form': calculated_fields_form,  # Add the calculated fields form to the context
+    #    'calculated_fields_form': calculated_fields_form,  # Add the calculated fields form to the context
+    #    'formset': formset,
     #    'creatinine': creatinine,  # Add creatinine to the context
     #    'creatinine2': creatinine2,  # Add creatinine2 to the context 
         'form_media': patient_form.media + age_form.media + weight_form.media + demographics_form.media + creatinine_form.media + creatinine_form2.media + drug_form.media,
@@ -920,4 +979,117 @@ def patient_select_drug_view(request, patient_id):
 #        form = SignUpForm()
 #    return render(request, 'account/signup.html', {'form': form})
 
-            
+
+# @login_required
+# def patient_list_view(request):
+#     patients = Patient.objects.filter(user=request.user)
+#     context = {
+#         'patients': patients
+#     }
+#     return render(request, 'account/patient_list.html', context)
+
+# @login_required
+# def select_patient_for_doses_view(request):
+#     patients = Patient.objects.filter(user=request.user)
+    
+#     # for patient in patients:
+#     #     print(f"Patient ID: {patient.patient_id}, Patient Name: {patient.patient_name}")
+#     context = {
+#         'patients': patients
+#     }
+#     return render(request, 'account/select_patient_for_doses.html', context)
+
+@login_required
+def select_patient_for_doses_view(request):
+    patients = Patient.objects.filter(user=request.user)
+    drug_form = DrugForm()
+
+    if request.method == 'POST':
+        drug_form = DrugForm(request.POST)
+        patient_id = request.POST.get('patient_id')
+        
+        if drug_form.is_valid() and patient_id:
+            selected_drug = drug_form.cleaned_data['drug']
+            #return redirect('patient_doses', patient_id=patient_id, drug=selected_drug)
+            url = reverse('patient_doses', kwargs={'patient_id': patient_id})
+            return redirect(f'{url}?drug={selected_drug}')
+            #return redirect(f'patient_doses?patient_id={patient_id}&drug={selected_drug}')
+        else:
+            messages.error(request, "Please select a patient and a drug.")
+            print("Drug form errors:", drug_form.errors)
+            print("Patient ID:", patient_id)
+
+    context = {
+        'patients': patients,
+        'drug_form': drug_form,
+    }
+    return render(request, 'account/select_patient_for_doses.html', context)
+
+@login_required
+def patient_doses_view(request, patient_id):
+    patient = Patient.objects.get(pk=patient_id)
+    selected_drug = request.GET.get('drug')
+    
+    # if request.method == 'POST':
+    #     formset = DoseFormSet(request.POST, queryset=Dose.objects.filter(patient=patient))
+    #     if formset.is_valid():
+    #         doses = formset.save(commit=False)
+    #         for dose in doses:
+    #             dose.patient = patient
+    #             dose.save()
+    #         return redirect('some_view_name')  # Replace with the name of the view to redirect to
+    # else:
+    #     formset = DoseFormSet(queryset=Dose.objects.filter(patient=patient))
+
+    # return render(request, 'account/patient_doses_form.html', {'formset': formset, 'patient': patient}) 
+    if request.method == 'POST':
+        drug_selection_form = DrugForm(request.POST)
+        formset = DoseFormSet(request.POST, queryset=Dose.objects.filter(patient=patient))
+        
+        # if drug_selection_form.is_valid():
+        #     selected_drug = drug_selection_form.cleaned_data['drug']
+        #     for form in formset:
+        #         form.initial['drug'] = selected_drug
+
+        if drug_selection_form.is_valid():
+            selected_drug = drug_selection_form.cleaned_data['drug']
+            for form in formset:
+                form.instance.drug = selected_drug
+        else:
+            messages.error(request, "Drug selection form is not valid.")
+            print("Drug selection form errors:", drug_selection_form.errors)        
+
+        
+        # if formset.is_valid():
+        #     doses = formset.save(commit=False)
+        #     for dose in doses:
+        #         dose.patient = patient
+        #         dose.save()
+        #     return redirect('patient_doses_view')  # Replace with the name of the view to redirect to
+        
+        if formset.is_valid():
+            doses = formset.save(commit=False)
+            for dose in doses:
+                dose.patient = patient # adds foreign key to the dose
+                dose.save()
+            return redirect('patient_doses', patient_id=patient_id)  # Redirect to the same view
+        else:
+            messages.error(request, "Dose formset is not valid line 1077.")
+            print("Dose formset errors:", formset.errors)
+            for form in formset:
+                print("Form errors:", form.errors)
+
+    else:
+        drug_selection_form = DrugForm(initial={'drug': selected_drug})
+        #drug_selection_form = DrugForm()
+        formset = DoseFormSet(queryset=Dose.objects.filter(patient=patient))
+
+    context = {
+        'formset': formset,
+        'drug_selection_form': drug_selection_form,
+        'patient': patient,
+        'form_media': formset.media,
+    }    
+
+    #return render(request, 'account/patient_doses_form.html', {'formset': formset, 'drug_selection_form': drug_selection_form, 'patient': patient}) 
+    return render(request, 'account/patient_doses_form.html', context) 
