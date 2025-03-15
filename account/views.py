@@ -1043,9 +1043,10 @@ def patient_doses_view(request, patient_id):
 
     # return render(request, 'account/patient_doses_form.html', {'formset': formset, 'patient': patient}) 
     if request.method == 'POST':
+        print("Raw POST data:", request.POST)
         drug_selection_form = DrugForm(request.POST)
-        formset = DoseFormSet(request.POST, queryset=Dose.objects.filter(patient=patient))
-        
+        formset = DoseFormSet(request.POST, queryset=Dose.objects.filter(patient=patient).order_by('dosetime'))
+        #formset = DoseFormSet(queryset=Dose.objects.filter(patient=patient).order_by('dosetime'))
         # if drug_selection_form.is_valid():
         #     selected_drug = drug_selection_form.cleaned_data['drug']
         #     for form in formset:
@@ -1072,18 +1073,35 @@ def patient_doses_view(request, patient_id):
             for dose in doses:
                 dose.patient = patient # adds foreign key to the dose
                 dose.save()
+            for obj in formset.deleted_objects:
+                obj.delete()
+            #formset.save_m2m()    
             return redirect('patient_doses', patient_id=patient_id)  # Redirect to the same view
         else:
-            messages.error(request, "Dose formset is not valid line 1077.")
+            # messages.error(request, "Dose formset is not valid line 1077.")
+            # print("Dose formset errors:", formset.errors)
+            # for form in formset:
+            #     print("Form errors:", form.errors)
+            # messages.error(request, "Dose formset is not valid.")
+            # print("Dose formset errors:", formset.errors)
+            # print("Formset non-form errors:", formset.non_form_errors())  # Check formset-level errors
+            # for i, form in enumerate(formset):
+            #     print(f"Form {i} cleaned_data:", form.cleaned_data)
+            #     print(f"Form {i} errors:", form.errors.as_data())  # Detailed errors
+            messages.error(request, "Dose formset is not valid.")
             print("Dose formset errors:", formset.errors)
-            for form in formset:
-                print("Form errors:", form.errors)
-
+            print("Formset non-form errors:", formset.non_form_errors())
+            for i, form in enumerate(formset):
+                print(f"Form {i} is_valid:", form.is_valid())
+                print(f"Form {i} errors:", form.errors.as_data())
+                print(f"Form {i} cleaned_data:", getattr(form, 'cleaned_data', 'Not available'))
+                print(f"Form {i} changed_data:", form.changed_data)
+                
     else:
         drug_selection_form = DrugForm(initial={'drug': selected_drug})
         #drug_selection_form = DrugForm()
-        formset = DoseFormSet(queryset=Dose.objects.filter(patient=patient))
-
+        #formset = DoseFormSet(queryset=Dose.objects.filter(patient=patient))
+        formset = DoseFormSet(queryset=Dose.objects.filter(patient=patient).order_by('dosetime'))
     context = {
         'formset': formset,
         'drug_selection_form': drug_selection_form,

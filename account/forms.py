@@ -289,16 +289,22 @@ class DoseForm(forms.ModelForm):
         label='Date and Time of Dose'
     )
     # dose_id = forms.CharField( # remove all of this
-    #     widget=forms.TextInput(attrs={'placeholder': 'Auto-generated Dose ID', 'readonly': 'readonly'}),
+    #    # widget=forms.TextInput(attrs={'placeholder': 'Auto-generated Dose ID', 'readonly': 'readonly'}),
+    #     widget=forms.NumberInput(attrs={'readonly': 'readonly'}),
     #     label='Dose ID',
     #     required=False
     # )
-
+    dose_id = forms.IntegerField(
+        widget=forms.HiddenInput(),
+        required=False,  # Not required for new instances
+        #disabled=True    # Prevents modification
+    )
+    dose = forms.DecimalField(max_digits=6, decimal_places=2)
     class Meta:
         model = Dose
-        fields = ['dose', 'dosetime', 'drug']# take all all dose_id stuff
+        fields = ['dose_id', 'dose', 'dosetime', 'drug']# take all all dose_id stuff
+        #exclude = ['dose_id']  # Explicitly exclude dose_id
         labels = {
-            'dose_id': 'Dose ID',
             'dose': 'Dose (mg)',
             'dosetime': 'Date and Time of Dose',
             'drug': 'Drug',
@@ -306,17 +312,37 @@ class DoseForm(forms.ModelForm):
         
 
 
+# class BaseDoseFormSet(BaseModelFormSet):
+#     def clean(self):
+#         if any(self.errors):
+#             return
+
+#         for form in self.forms:
+#             # if not form.cleaned_data:
+#             #     continue  # Ignore empty forms
+#             # Add any additional validation logic here
+#             if not form.has_changed() or not form.cleaned_data:  # Skip unchanged or empty
+#                 continue
+#             if not form.cleaned_data.get('dose') or not form.cleaned_data.get('dosetime'):
+#                 raise forms.ValidationError("All fields must be filled out.")
+
 class BaseDoseFormSet(BaseModelFormSet):
     def clean(self):
-        if any(self.errors):
-            return
-
+        if any(self.errors):  # Check if any form has errors
+            return  # Skip further validation if there are errors
         for form in self.forms:
-            if not form.cleaned_data:
-                continue  # Ignore empty forms
-            # Add any additional validation logic here
-            if not form.cleaned_data.get('dose') or not form.cleaned_data.get('dosetime'):
-                raise forms.ValidationError("All fields must be filled out.")
+            # Only validate forms that have changed and are valid
+            if form.has_changed() and form.is_valid():
+                cleaned_data = form.cleaned_data
+                if not cleaned_data.get('dose') or not cleaned_data.get('dosetime'):
+                    raise forms.ValidationError("All fields must be filled out for new or changed doses.")
+            # Skip empty or unchanged forms silently
+#DoseFormSet = modelformset_factory(Dose, form=DoseForm, formset=BaseDoseFormSet, extra=1)
 
-#DoseFormSet = modelformset_factory(Dose, form=DoseForm, extra=1) 
-DoseFormSet = modelformset_factory(Dose, form=DoseForm, formset=BaseDoseFormSet, extra=1)
+DoseFormSet = modelformset_factory(
+    Dose,
+    form=DoseForm,
+    formset=BaseDoseFormSet,
+    extra=1,
+    can_delete=True  # Allows deletion of existing instances
+)

@@ -1,3 +1,4 @@
+
 {% extends "base.html" %}
 
 {% block extra_css %}
@@ -7,41 +8,73 @@
 {% endblock %}
 
 {% block extra_js %}
+
 {% bootstrap_javascript jquery='full' %}
 {{ form_media.js }}
 {% endblock %}
 
-
 {% block content %}
 <h1>Doses for Patient {{ patient.patient_name }}</h1>
-<form method="post">
-  
 
+{% if messages %}
+  <ul class="messages">
+    {% for message in messages %}
+      <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+<form method="post">
   {% csrf_token %}
-  {{ form.media}}
+  {% bootstrap_javascript jquery='full' %}  <!-- Load jQuery explicitly here -->
+  {{ formset.media }}  <!-- Use formset.media explicitly instead of form.media -->
+
+  <h3>Select Drug</h3>
   {{ drug_selection_form.as_p }}
+  {% if drug_selection_form.errors %}
+    <div class="alert alert-danger">
+      {{ drug_selection_form.errors }}
+    </div>
+  {% endif %}
+
+  <h3>Dose Details</h3>
   {{ formset.management_form }}
 
-  
-
-  <table>
-    {% for form in formset %}
+  <table class="table">
+    <thead>
       <tr>
-        <td>{{ form.dose.label_tag }}</td>
-        <td>{{ form.dose }}</td>
-        <td>{{ form.dosetime.label_tag }}</td>
-        <td>{{ form.dosetime }}</td>
-        <td>{{ form.drug.label_tag }}</td>
-        <td>{{ form.drug }}</td>
+        <th>{{ formset.forms.0.dose.label }}</th>
+        <th>{{ formset.forms.0.dosetime.label }}</th>
+        <!-- Optionally remove drug column if it's set programmatically -->
+        <th>{{ formset.forms.0.drug.label }}</th>
+        <th>Delete</th>
       </tr>
-    {% endfor %}
+    </thead>
+    <tbody>
+      {% for form in formset %}
+      
+
+
+        <tr>
+          
+          {% for hidden in form.hidden_fields %}
+            {{ hidden }}  <!-- Renders the HTML for each hidden field, e.g., dose_id -->
+          {% endfor %}
+          <td>{{ form.dose }} {{ form.dose.errors }}</td>
+          <td>{{ form.dosetime }} {{ form.dosetime.errors }}</td>
+          <!-- If drug is set programmatically, consider hiding this -->
+          <td>{{ form.drug }} {{ form.drug.errors }}</td>
+          <td>
+            {% if form.instance.pk %}  <!-- Only show delete for existing doses -->
+              {{ form.DELETE }}  <!-- Renders the delete checkbox -->
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
   </table>
-  <button type="submit">Save Doses</button>
+
+  <button type="submit" class="btn btn-primary">Save Doses</button>
 </form>
 
-
-
 {% endblock %}
-
-
-

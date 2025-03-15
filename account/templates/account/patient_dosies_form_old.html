@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+{% load bootstrap4 %}
+{% bootstrap_css %}
+{{ form_media.css }}
+{% endblock %}
+
+{% block extra_js %}
+{% bootstrap_javascript jquery='full' %}
+{{ form_media.js }}
+{% endblock %}
+
+
+{% block content %}
+<h1>Doses for Patient {{ patient.patient_name }}</h1>
+<form method="post">
+  
+
+  {% csrf_token %}
+  {{ form.media}}
+  {{ drug_selection_form.as_p }}
+  {{ formset.management_form }}
+
+  
+
+  <table>
+    {% for form in formset %}
+      <tr>
+        <td>{{ form.dose.label_tag }}</td>
+        <td>{{ form.dose }}</td>
+        <td>{{ form.dosetime.label_tag }}</td>
+        <td>{{ form.dosetime }}</td>
+        <td>{{ form.drug.label_tag }}</td>
+        <td>{{ form.drug }}</td>
+      </tr>
+    {% endfor %}
+  </table>
+  <button type="submit">Save Doses</button>
+</form>
+
+
+
+{% endblock %}
